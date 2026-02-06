@@ -3,7 +3,6 @@
 // 使用技術: Node.js (Express), OpenAI JavaScript SDK, ffmpeg
 // コメントはすべて日本語で記述しています。
 
-import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -22,9 +21,26 @@ import archiver from "archiver";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 配布フォルダのどこに置いても .env を読み込む（サーバー本体と同じディレクトリ）
+// 配布フォルダのどこに置いても .env を読み込む（dotenv パッケージに依存しない）
 const envPath = path.join(__dirname, ".env");
-dotenv.config({ path: envPath });
+function loadEnv(envFilePath) {
+  try {
+    if (!fs.existsSync(envFilePath)) return;
+    const content = fs.readFileSync(envFilePath, "utf8");
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq <= 0) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let val = trimmed.slice(eq + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))
+        val = val.slice(1, -1);
+      if (key) process.env[key] = val;
+    }
+  } catch (_) {}
+}
+loadEnv(envPath);
 
 const APP_VERSION = "1.0.0";
 
