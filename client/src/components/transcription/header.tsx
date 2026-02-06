@@ -1,8 +1,10 @@
-import { AudioWaveform } from "lucide-react"
+import { AudioWaveform, Sun, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTheme } from "@/contexts/theme"
 
 export function TranscriptionHeader() {
   const isDev = import.meta.env.DEV
+  const { theme, setTheme } = useTheme()
 
   const handleClose = () => {
     if (isDev) {
@@ -37,14 +39,29 @@ export function TranscriptionHeader() {
           </p>
         </div>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleClose}
-        className="shrink-0 border-border text-muted-foreground hover:text-foreground"
-      >
-        閉じる (アプリ終了)
-      </Button>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="h-9 w-9 border-border text-muted-foreground hover:text-foreground"
+          title={theme === "dark" ? "ライトモードに切り替え" : "ダークモードに切り替え"}
+        >
+          {theme === "dark" ? (
+            <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleClose}
+          className="border-border text-muted-foreground hover:text-foreground"
+        >
+          閉じる (アプリ終了)
+        </Button>
+      </div>
     </header>
   )
 }
