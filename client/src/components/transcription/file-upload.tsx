@@ -93,13 +93,13 @@ export function FileUpload({ file, onFileChange }: FileUploadProps) {
               ファイルをドラッグ&ドロップ
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              またはクリックして選択 (wav, mp3, ogg, flac, mp4, avi)
+              またはクリックして選択 (wav, mp3, ogg, flac)
             </p>
           </div>
           <input
             type="file"
             className="hidden"
-            accept=".wav,.mp3,.ogg,.flac,.mp4,.avi"
+            accept=".wav,.mp3,.ogg,.flac"
             onChange={handleFileInput}
           />
         </label>

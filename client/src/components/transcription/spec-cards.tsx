@@ -4,7 +4,7 @@ const specs = [
   {
     icon: FileAudio,
     title: "対応形式",
-    description: "wav / mp3 / ogg / flac / mp4 / avi",
+    description: "wav / mp3 / ogg / flac",
   },
   {
     icon: Scissors,
