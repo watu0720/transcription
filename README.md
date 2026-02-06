@@ -27,7 +27,9 @@
    - サーバーが起動すると、自動でブラウザが開きます。
    - **このウィンドウは、アプリケーションを使用している間、開いたままにしてください。**
 
-> **Note**: `package.json` が更新された場合など、依存関係に変更があった場合は、再度 `setup.bat` を実行してください。
+> **Note**: `package.json` が更新された場合など、依存関係に変更があった場合は、再度 `setup.bat` を実行してください。フロントエンド（`client/`）のコードを変更した場合は、ルートで `npm run build` を実行してから `launch.bat` で起動してください。
+>
+> **動作確認・開発**: `npm run dev` または `make dev` を実行するとサーバー（3000）と Vite（5173）が同時に起動します。**開発時はブラウザを自動では開きません。必ず http://localhost:5173 を手動で開いて**ください（3000 ではなく 5173 で開くことでプロキシ経由でサーバーに接続されます）。
 
 ### macOS / Linux
 ```bash
@@ -47,6 +49,22 @@ npm start
 ```
 `npm start` を実行すると、サーバーが起動し、自動でブラウザが開きます。
 
+### Makefile（macOS / Linux / Git Bash）
+
+`make` が使える環境では次のコマンドが利用できます。
+
+| コマンド | 説明 |
+|----------|------|
+| `make install` | 依存関係をインストール（ルート + client） |
+| `make build` | クライアントをビルド |
+| `make start` | 本番サーバー起動 |
+| `make dev` | 開発モード（サーバー + Vite、http://localhost:5173 で確認） |
+| `make clean` | node_modules とビルド成果物を削除 |
+| `make setup` | install + build（初回セットアップ） |
+| `make help` | ヘルプ表示 |
+
+Windows では Git Bash または WSL で `make` を実行してください。
+
 ---
 
 ## 使い方
@@ -59,7 +77,7 @@ npm start
 ## 技術ポイント
 
 - **バックエンド**: Express / OpenAI SDK / ffmpeg-static + fluent-ffmpeg
-- **フロントエンド**: HTML / CSS / Vanilla JS
+- **フロントエンド**: React (Vite) / TypeScript / Tailwind CSS
 - 音声は 9 分(540 秒)毎に分割し、サイズ制限 (25MB) を回避しています。
 - Whisper API の `verbose_json` + `timestamp_granularities=[segment]` を使い、開始・終了時刻を取得、チャンクオフセットで補正しています。
 

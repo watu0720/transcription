@@ -4,7 +4,11 @@
   "description": "動画・音声ファイルをWhisperで文字起こしするシステム",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "npm run build --prefix client",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "cross-env SKIP_OPEN_BROWSER=1 node server.js",
+    "dev:client": "npm run dev --prefix client"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -16,5 +20,9 @@
     "openai": "^4.17.0",
     "open": "^10.1.0",
     "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3"
   }
 } 

@@ -29,13 +29,32 @@ if not exist .env (
 )
 
 rem Install dependencies
-echo [INFO] Installing npm dependencies...
+echo [INFO] Installing npm dependencies (root)...
 call npm.cmd install --no-audit --progress=false
 if %errorlevel% neq 0 (
   echo [ERROR] npm install failed. Please check if Node.js and npm are installed correctly.
   pause
   exit /b 1
 )
+
+rem Install and build client (React)
+echo [INFO] Installing client dependencies and building React app...
+cd client
+call npm.cmd install --no-audit --progress=false
+if %errorlevel% neq 0 (
+  echo [ERROR] Client npm install failed.
+  cd ..
+  pause
+  exit /b 1
+)
+call npm.cmd run build
+if %errorlevel% neq 0 (
+  echo [ERROR] Client build failed.
+  cd ..
+  pause
+  exit /b 1
+)
+cd ..
 
 echo.
 echo [SUCCESS] Setup complete.

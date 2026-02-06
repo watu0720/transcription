@@ -101,7 +101,12 @@ app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   const url = `http://localhost:${PORT}`;
   console.log(`Application available at: ${url}`);
-  open(url).catch(err => console.error("Failed to open browser:", err));
+  // 開発時 (npm run dev) ではブラウザを開かない。Vite (5173) を開く想定
+  if (!process.env.SKIP_OPEN_BROWSER) {
+    open(url).catch(err => console.error("Failed to open browser:", err));
+  } else {
+    console.log("Dev mode: open http://localhost:5173 for the app.");
+  }
 });
 
 /***************************************
