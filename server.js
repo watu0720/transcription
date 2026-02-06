@@ -16,6 +16,7 @@ import { fileURLToPath } from "url";
 import OpenAI from "openai";
 import process from "process";
 import open from "open";
+import archiver from "archiver";
 
 // __dirname が ES Module で使えないための対応
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +38,10 @@ await (async () => {
 // アップロードファイルの保存先設定
 const uploadDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+// セグメント WAV 用セッション保存先（直近 1 件のみ保持）
+const sessionsDir = path.join(__dirname, "sessions");
+if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir);
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
@@ -79,15 +84,106 @@ app.post("/transcribe", upload.single("media"), async (req, res) => {
     // 3) 各セグメントを Whisper で文字起こし
     const aggregated = await transcribeSegments(segmentPaths);
 
-    // 後片付け
-    cleanupFiles([uploadedPath, audioPath, ...segmentPaths]);
+    // セッション用: 既存セッション削除 → 今回の WAV と segments を保存
+    cleanupSessions();
+    const sessionId = uuidv4();
+    const sessionWav = path.join(sessionsDir, `${sessionId}.wav`);
+    fs.renameSync(audioPath, sessionWav);
+    fs.writeFileSync(
+      path.join(sessionsDir, `${sessionId}.json`),
+      JSON.stringify(aggregated.segments),
+      "utf8"
+    );
 
-    return res.json({...aggregated,durationMs:Date.now()-startTime});
+    // 後片付け（アップロード元と 9 分分割ファイルのみ。WAV はセッションに移動済み）
+    cleanupFiles([uploadedPath, ...segmentPaths]);
+
+    return res.json({
+      ...aggregated,
+      sessionId,
+      durationMs: Date.now() - startTime
+    });
   } catch (err) {
     console.error(err);
     cleanupFiles([uploadedPath]);
     return res.status(500).json({ message: "サーバー内部でエラーが発生しました。" });
   }
+});
+
+// 全セグメントを ZIP で一括ダウンロード（/:index より先に定義すること）
+app.get("/segment/:sessionId/zip", (req, res) => {
+  const { sessionId } = req.params;
+  const sessionWav = path.join(sessionsDir, `${sessionId}.wav`);
+  const sessionJson = path.join(sessionsDir, `${sessionId}.json`);
+  if (!fs.existsSync(sessionWav) || !fs.existsSync(sessionJson)) {
+    return res.status(404).json({ message: "セッションが見つかりません。" });
+  }
+  const segments = JSON.parse(fs.readFileSync(sessionJson, "utf8"));
+  const archive = archiver("zip", { zlib: { level: 6 } });
+  archive.on("error", (err) => {
+    console.error(err);
+    tempPaths.forEach((p) => { try { fs.unlinkSync(p); } catch (_) {} });
+    if (!res.headersSent) res.status(500).json({ message: "ZIP の作成に失敗しました。" });
+  });
+  res.attachment("segments.zip");
+  archive.pipe(res);
+  const tempPaths = [];
+  (async () => {
+    try {
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        const outPath = path.join(sessionsDir, `_zip_${sessionId}_${i}.wav`);
+        tempPaths.push(outPath);
+        await extractSegmentWav(sessionWav, seg.start, seg.end, outPath);
+        const serif = sanitizeForFilename(seg.text);
+        const name = serif
+          ? `${String(i + 1).padStart(3, "0")}_${serif}.wav`
+          : `${String(i + 1).padStart(3, "0")}.wav`;
+        archive.append(fs.createReadStream(outPath), { name });
+      }
+      archive.finalize();
+    } catch (err) {
+      console.error(err);
+      tempPaths.forEach((p) => { try { fs.unlinkSync(p); } catch (_) {} });
+      archive.abort();
+    }
+  })();
+  archive.on("end", () => {
+    tempPaths.forEach((p) => { try { fs.unlinkSync(p); } catch (_) {} });
+  });
+});
+
+// セグメント 1 本を WAV で取得
+app.get("/segment/:sessionId/:index", (req, res) => {
+  const { sessionId, index: indexStr } = req.params;
+  const sessionWav = path.join(sessionsDir, `${sessionId}.wav`);
+  const sessionJson = path.join(sessionsDir, `${sessionId}.json`);
+  const idx = parseInt(indexStr, 10);
+  if (!fs.existsSync(sessionWav) || !fs.existsSync(sessionJson)) {
+    return res.status(404).json({ message: "セッションが見つかりません。" });
+  }
+  const segments = JSON.parse(fs.readFileSync(sessionJson, "utf8"));
+  if (!Number.isFinite(idx) || idx < 0 || idx >= segments.length) {
+    return res.status(400).json({ message: "無効なセグメント番号です。" });
+  }
+  const seg = segments[idx];
+  const outPath = path.join(sessionsDir, `_seg_${sessionId}_${idx}.wav`);
+  const serif = sanitizeForFilename(seg.text);
+  const downloadName = serif
+    ? `${String(idx + 1).padStart(3, "0")}_${serif}.wav`
+    : `${String(idx + 1).padStart(3, "0")}.wav`;
+  extractSegmentWav(sessionWav, seg.start, seg.end, outPath)
+    .then(() => {
+      res.download(outPath, downloadName, (err) => {
+        fs.unlink(outPath, () => {});
+        if (err && !res.headersSent) res.status(500).end();
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+      if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+      res.status(500).json({ message: "セグメントの抽出に失敗しました。" });
+    });
 });
 
 // graceful shutdown endpoint
@@ -209,6 +305,39 @@ async function transcribeSegments(paths) {
 }
 
 /**
+ * セッション用 WAV/JSON を削除（直近 1 件のみ保持するため、新規セッション前に呼ぶ）
+ */
+function cleanupSessions() {
+  try {
+    const names = fs.readdirSync(sessionsDir);
+    for (const n of names) {
+      const p = path.join(sessionsDir, n);
+      if (fs.statSync(p).isFile()) fs.unlinkSync(p);
+    }
+  } catch (_) {}
+}
+
+/**
+ * 元 WAV の start〜end 秒を切り出して WAV で保存
+ * @param {string} inputPath 元 WAV
+ * @param {number} start 開始秒
+ * @param {number} end 終了秒
+ * @param {string} outputPath 出力 WAV パス
+ * @returns {Promise<void>}
+ */
+function extractSegmentWav(inputPath, start, end, outputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .setStartTime(start)
+      .setDuration(Math.max(0.001, end - start))
+      .output(outputPath)
+      .on("end", () => resolve())
+      .on("error", reject)
+      .run();
+  });
+}
+
+/**
  * 任意のファイル群を安全に削除 (存在しなくても無視)
  * @param {string[]} files
  */
@@ -226,6 +355,19 @@ function cleanupFiles(files) {
       // 無視
     }
   }
+}
+
+/**
+ * ファイル名に使うためにセリフをサニタイズ（禁則文字除去・長さ制限）
+ * @param {string} text セグメントのテキスト
+ * @param {number} maxLen 最大文字数（省略時 30）
+ * @returns {string}
+ */
+function sanitizeForFilename(text, maxLen = 30) {
+  if (!text || typeof text !== "string") return "";
+  const replaced = text.replace(/[\\/:*?"<>|\n\r\t]+/g, " ").trim();
+  if (replaced.length <= maxLen) return replaced;
+  return replaced.slice(0, maxLen);
 }
 
 /**

@@ -30,6 +30,9 @@ function applyTheme(theme: Theme) {
   }
 }
 
+const TRANSITION_CLASS = "theme-transition"
+const TRANSITION_MS = 580
+
 const ThemeContext = createContext<{
   theme: Theme
   setTheme: (theme: Theme) => void
@@ -39,9 +42,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => getStoredTheme())
 
   const setTheme = useCallback((next: Theme) => {
-    setThemeState(next)
-    localStorage.setItem(STORAGE_KEY, next)
-    applyTheme(next)
+    const root = document.documentElement
+    root.classList.add(TRANSITION_CLASS)
+    requestAnimationFrame(() => {
+      setThemeState(next)
+      localStorage.setItem(STORAGE_KEY, next)
+      applyTheme(next)
+      setTimeout(() => {
+        root.classList.remove(TRANSITION_CLASS)
+      }, TRANSITION_MS)
+    })
   }, [])
 
   useEffect(() => {

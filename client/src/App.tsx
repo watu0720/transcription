@@ -16,6 +16,7 @@ export default function App() {
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<Status>("idle")
   const [segments, setSegments] = useState<TranscriptionSegment[]>([])
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [elapsedTime, setElapsedTime] = useState<number | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>("")
 
@@ -23,6 +24,7 @@ export default function App() {
     if (!file) return
     setStatus("processing")
     setSegments([])
+    setSessionId(null)
     setElapsedTime(null)
     setErrorMessage("")
 
@@ -36,6 +38,7 @@ export default function App() {
           })
         )
         setSegments(displaySegments)
+        setSessionId(data.sessionId)
         setElapsedTime(data.durationMs / 1000)
         setStatus("complete")
       })
@@ -49,6 +52,7 @@ export default function App() {
     setFile(null)
     setStatus("idle")
     setSegments([])
+    setSessionId(null)
     setElapsedTime(null)
     setErrorMessage("")
   }, [])
@@ -85,9 +89,9 @@ export default function App() {
               </Button>
               <Button
                 onClick={handleReset}
-                variant="outline"
+                variant="outlineCard"
                 size="lg"
-                className="border-border bg-transparent text-foreground hover:bg-muted"
+                className="border-border"
               >
                 リセット
               </Button>
@@ -102,10 +106,14 @@ export default function App() {
 
           {segments.length > 0 && (
             <>
-              <ResultsViewer segments={segments} />
+              <ResultsViewer
+                segments={segments}
+                sessionId={sessionId}
+              />
               <DownloadButtons
                 segments={segments}
                 fileName={file?.name || "transcription"}
+                sessionId={sessionId}
               />
             </>
           )}

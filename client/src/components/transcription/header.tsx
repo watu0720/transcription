@@ -44,7 +44,7 @@ export function TranscriptionHeader() {
           variant="outline"
           size="icon"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="h-9 w-9 border-border text-muted-foreground hover:text-foreground"
+          className="h-9 w-9 border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
           title={theme === "dark" ? "ライトモードに切り替え" : "ダークモードに切り替え"}
         >
           {theme === "dark" ? (
@@ -57,7 +57,7 @@ export function TranscriptionHeader() {
           variant="outline"
           size="sm"
           onClick={handleClose}
-          className="border-border text-muted-foreground hover:text-foreground"
+          className="border-border text-muted-foreground hover:bg-muted/40 hover:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground"
         >
           閉じる (アプリ終了)
         </Button>

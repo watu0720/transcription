@@ -7,6 +7,9 @@ node_modules/
 # Uploaded files
 /uploads/
 
+# Session WAV/JSON for segment download
+/sessions/
+
 # Logs
 launch_log.txt
 debug_log.txt

@@ -90,6 +90,19 @@ Windows では Git Bash または WSL で `make` を実行してください。
 
 ## トラブルシューティング (Troubleshooting)
 
+### 「サーバーに接続できません」と表示される場合（`make dev` / `npm run dev` 時）
+
+- **症状**: 音声を読み込んで「文字起こし開始」を押すと、画面下部に「サーバーに接続できません。npm run dev または make dev で…」と表示される。
+- **原因**: バックエンド（Node サーバー）が起動していないか、すぐに終了している可能性があります。
+- **確認と対処**:
+  1. **依存関係**: プロジェクトルートで `npm install` を実行してください（`archiver` など追加パッケージが入ります）。
+  2. **起動方法**: Windows では `make` が無い場合があります。そのときは **`npm run dev`** を実行してください（`make dev` と同じ動きです）。
+  3. **ターミナル表示**: `npm run dev` 実行後、次の 2 つが両方出ているか確認してください。
+     - `[0] Server listening on port 3000` のようなメッセージ（サーバー起動）
+     - `[1] Local: http://localhost:5173/` のようなメッセージ（Vite 起動）
+  4. **エラーが出ている場合**: `[0]` の直後に `[ERROR] .env に有効な OPENAI_API_KEY を設定してください` や `Cannot find module 'archiver'` などが出ていれば、`.env` の API キー設定や `npm install` で解消できます。
+  5. **開く URL**: 必ず **http://localhost:5173** を開いてください（3000 ではなく 5173）。5173 経由でないとプロキシが効かず接続できません。
+
 ### `launch.bat` を実行してもブラウザが起動しない場合
 
 - `launch.bat` の実行後、プロジェクトフォルダに `launch_log.txt` というファイルが生成されます。
