@@ -3,14 +3,20 @@ chcp 65001 > nul
 rem 配布用ランチャー（フォルダの置き場所に依存しません）
 cd /d "%~dp0"
 
-if not exist node_modules (
-  echo [INFO] 初回起動: 依存関係をインストールしています...
-  call npm.cmd install --omit=dev --no-audit
+rem node_modules がない、または dotenv が入っていない（別PCでコピーした等）場合は npm install を実行
+set "NEED_INSTALL=0"
+if not exist "node_modules" set "NEED_INSTALL=1"
+if not exist "node_modules\dotenv" set "NEED_INSTALL=1"
+if "%NEED_INSTALL%"=="1" (
+  echo [INFO] 依存関係をインストールしています（初回または修復）...
+  echo [INFO] このPCに Node.js がインストールされている必要があります。https://nodejs.org/ja/
+  call npm install --omit=dev --no-audit
   if errorlevel 1 (
-    echo [ERROR] npm install に失敗しました。Node.js がインストールされているか確認してください。
+    echo [ERROR] npm install に失敗しました。Node.js をインストールしてから再度 launch.bat を実行してください。
     pause
     exit /b 1
   )
+  echo.
 )
 
 echo [INFO] サーバーを起動しています。このウィンドウを閉じないでください。
