@@ -45,10 +45,12 @@ export function ResultsViewer({ segments }: ResultsViewerProps) {
           variant="ghost"
           size="sm"
           onClick={copyAll}
-          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+          className={`gap-1.5 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground dark:hover:bg-accent dark:hover:text-accent-foreground ${
+            copiedIndex === -1 ? "!bg-accent !text-white" : ""
+          }`}
         >
           {copiedIndex === -1 ? (
-            <Check className="h-3.5 w-3.5 text-accent" />
+            <Check className="h-3.5 w-3.5 text-white" />
           ) : (
             <Copy className="h-3.5 w-3.5" />
           )}
@@ -70,13 +72,15 @@ export function ResultsViewer({ segments }: ResultsViewerProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              className={`h-7 w-7 shrink-0 hover:bg-muted/40 dark:hover:bg-accent dark:hover:text-accent-foreground ${
+                copiedIndex === index ? "!bg-accent !text-white" : ""
+              }`}
               onClick={() => copySegment(segment.text, index)}
             >
               {copiedIndex === index ? (
-                <Check className="h-3.5 w-3.5 text-accent" />
+                <Check className="h-3.5 w-3.5 text-white" />
               ) : (
-                <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                <Copy className="h-3.5 w-3.5 text-muted-foreground dark:text-white" />
               )}
               <span className="sr-only">コピー</span>
             </Button>

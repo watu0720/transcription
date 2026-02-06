@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback } from "react"
 import { Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TranscriptionHeader } from "@/components/transcription/header"
@@ -12,43 +12,12 @@ import { transcribe, secToHms } from "@/lib/transcribe"
 
 type Status = "idle" | "processing" | "complete" | "error"
 
-/** ファイルサイズと拡張子からおおよその再生時間（秒）を推定。プログレスバーの進み方に使用 */
-function estimateDurationSeconds(file: File): number {
-  const mb = file.size / (1024 * 1024)
-  const ext = (file.name.split(".").pop() ?? "").toLowerCase()
-  // 圧縮形式: 1MB ≒ 1分, 非圧縮WAV: 1MB ≒ 数秒
-  const secPerMb = /\.(wav|avi)$/i.test(file.name) ? 12 : 60
-  const estimated = mb * secPerMb
-  return Math.max(10, Math.min(600, Math.round(estimated))) // 10秒〜10分にクランプ
-}
-
 export default function App() {
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<Status>("idle")
   const [segments, setSegments] = useState<TranscriptionSegment[]>([])
   const [elapsedTime, setElapsedTime] = useState<number | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>("")
-  const [progressPercent, setProgressPercent] = useState(0)
-  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    if (status !== "processing" || !file) return
-    setProgressPercent(0)
-    const estimatedSeconds = estimateDurationSeconds(file)
-    const totalSteps = 45 // 0% → 90% を 2% 刻みで 45 ステップ
-    const intervalMs = (estimatedSeconds * 1000) / totalSteps
-    const interval = setInterval(() => {
-      setProgressPercent((p) => {
-        if (p >= 90) return 90
-        return p + 2
-      })
-    }, Math.max(200, intervalMs)) // 最低 200ms 間隔で滑らかに
-    progressIntervalRef.current = interval
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-      progressIntervalRef.current = null
-    }
-  }, [status, file])
 
   const handleStart = useCallback(() => {
     if (!file) return
@@ -56,15 +25,9 @@ export default function App() {
     setSegments([])
     setElapsedTime(null)
     setErrorMessage("")
-    setProgressPercent(0)
 
     transcribe(file)
       .then((data) => {
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current)
-          progressIntervalRef.current = null
-        }
-        setProgressPercent(100)
         const displaySegments: TranscriptionSegment[] = data.segments.map(
           (s) => ({
             start: secToHms(s.start),
@@ -77,10 +40,6 @@ export default function App() {
         setStatus("complete")
       })
       .catch((err) => {
-        if (progressIntervalRef.current) {
-          clearInterval(progressIntervalRef.current)
-          progressIntervalRef.current = null
-        }
         setErrorMessage(err instanceof Error ? err.message : "エラーが発生しました")
         setStatus("error")
       })
@@ -139,7 +98,6 @@ export default function App() {
             status={status}
             elapsedTime={elapsedTime}
             error={errorMessage}
-            progressPercent={progressPercent}
           />
 
           {segments.length > 0 && (
