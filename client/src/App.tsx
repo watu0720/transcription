@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { TranscriptionHeader } from "@/components/transcription/header"
@@ -7,12 +7,15 @@ import { FileUpload } from "@/components/transcription/file-upload"
 import { StatusBar } from "@/components/transcription/status-bar"
 import { ResultsViewer } from "@/components/transcription/results-viewer"
 import { DownloadButtons } from "@/components/transcription/download-buttons"
+import { ApiKeySetup } from "@/components/transcription/api-key-setup"
 import type { TranscriptionSegment } from "@/components/transcription/results-viewer"
 import { transcribe, secToHms } from "@/lib/transcribe"
 
 type Status = "idle" | "processing" | "complete" | "error"
 
 export default function App() {
+  const [configLoaded, setConfigLoaded] = useState(false)
+  const [hasApiKey, setHasApiKey] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<Status>("idle")
   const [segments, setSegments] = useState<TranscriptionSegment[]>([])
@@ -56,6 +59,34 @@ export default function App() {
     setElapsedTime(null)
     setErrorMessage("")
   }, [])
+
+  useEffect(() => {
+    fetch("/api/config/status")
+      .then((res) => res.json())
+      .then((data) => setHasApiKey(!!data.hasApiKey))
+      .catch(() => setHasApiKey(false))
+      .finally(() => setConfigLoaded(true))
+  }, [])
+
+  if (!configLoaded) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+        <p className="text-sm text-muted-foreground">読み込み中...</p>
+      </main>
+    )
+  }
+
+  if (!hasApiKey) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+        <ApiKeySetup
+          onSuccess={() => setHasApiKey(true)}
+          title="OpenAI API キーを設定してください"
+          subtitle="初回起動時は API キーが必要です。以下に入力して「保存」を押すと、このアプリで文字起こしが利用できるようになります。"
+        />
+      </main>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col bg-background">

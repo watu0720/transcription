@@ -3,7 +3,7 @@
 // 使用技術: Node.js (Express), OpenAI JavaScript SDK, ffmpeg
 // コメントはすべて日本語で記述しています。
 
-import "dotenv/config"; // .env から環境変数を読み込み
+import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -22,13 +22,46 @@ import archiver from "archiver";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// OpenAI クライアントの初期化（.env の OPENAI_API_KEY を使用。未設定時は起動しない）
-const apiKey = process.env.OPENAI_API_KEY;
-if (!apiKey || apiKey.startsWith("sk-your-") || apiKey === "sk-your-api-key-here") {
-  console.error("[ERROR] .env に有効な OPENAI_API_KEY を設定してください。");
-  process.exit(1);
+// 配布フォルダのどこに置いても .env を読み込む（サーバー本体と同じディレクトリ）
+const envPath = path.join(__dirname, ".env");
+dotenv.config({ path: envPath });
+
+const APP_VERSION = "1.0.0";
+
+/** 有効な API キーかどうか */
+function isValidApiKey(key) {
+  return key && typeof key === "string" && key.trim().length > 0
+    && !key.startsWith("sk-your-") && key !== "sk-your-api-key-here";
 }
-const openai = new OpenAI({ apiKey });
+
+/** 現在の OpenAI クライアントを返す（未設定時は null） */
+let openaiClient = null;
+const initialKey = process.env.OPENAI_API_KEY;
+if (isValidApiKey(initialKey)) {
+  openaiClient = new OpenAI({ apiKey: initialKey.trim() });
+} else {
+  console.log("[INFO] OPENAI_API_KEY が未設定です。起動後、画面で API キーを設定してください。");
+}
+
+function getOpenAI() {
+  return openaiClient;
+}
+
+/** API キーを保存してクライアントを更新（配布フォルダの .env に書き込み） */
+function setApiKey(apiKey) {
+  if (!isValidApiKey(apiKey)) return false;
+  const key = apiKey.trim();
+  try {
+    const content = `OPENAI_API_KEY=${key}\n`;
+    fs.writeFileSync(envPath, content, "utf8");
+    process.env.OPENAI_API_KEY = key;
+    openaiClient = new OpenAI({ apiKey: key });
+    return true;
+  } catch (err) {
+    console.error("[ERROR] Failed to save API key:", err);
+    return false;
+  }
+}
 
 // ffmpeg の実行ファイルパスを設定
 await (async () => {
@@ -68,6 +101,33 @@ function toClientMessage(err, fallback) {
   return String(msg).replace(/[\r\n]+/g, " ").replace(/\/[\w\\.-]+/g, "").slice(0, 300) || fallback;
 }
 
+// ---------- 設定・バージョン API（配布版の API キー設定・バージョン履歴用） ----------
+app.get("/api/config/status", (req, res) => {
+  res.json({ hasApiKey: !!getOpenAI() });
+});
+
+app.post("/api/config/api-key", (req, res) => {
+  const apiKey = req.body && req.body.apiKey;
+  if (!apiKey || typeof apiKey !== "string") {
+    return res.status(400).json({ ok: false, message: "API キーを入力してください。" });
+  }
+  if (setApiKey(apiKey)) {
+    return res.json({ ok: true });
+  }
+  res.status(500).json({ ok: false, message: "API キーの保存に失敗しました。" });
+});
+
+app.get("/api/version", (req, res) => {
+  let history = "";
+  const historyPath = path.join(__dirname, "VERSION_HISTORY.md");
+  try {
+    if (fs.existsSync(historyPath)) {
+      history = fs.readFileSync(historyPath, "utf8");
+    }
+  } catch (_) {}
+  res.json({ version: APP_VERSION, history });
+});
+
 /*--------------------------------------
   エンドポイント: /transcribe (POST)
   FormData で "media" フィールドに動画または音声ファイルを指定。
@@ -85,7 +145,12 @@ app.post("/transcribe", (req, res, next) => {
   });
 }, async (req, res) => {
   const startTime=Date.now();
-  // 言語翻訳機能は削除し、日本語文字起こしのみに戻しました。
+  const openai = getOpenAI();
+  if (!openai) {
+    return res.status(503).json({
+      message: "OpenAI API キーが設定されていません。対策: ヘッダーの「設定」から API キーを入力・保存してください。"
+    });
+  }
   if (!req.file) {
     return res.status(400).json({
       message: "ファイルが送信されていません。対策: ファイルを選択してから「文字起こし開始」を押してください。"
@@ -347,7 +412,7 @@ async function transcribeSegments(paths) {
 
   for (const p of paths) {
     // Whisper API コール
-    const transcription = await openai.audio.transcriptions.create({
+    const transcription = await getOpenAI().audio.transcriptions.create({
       model: "whisper-1",
       file: fs.createReadStream(p),
       response_format: "verbose_json",

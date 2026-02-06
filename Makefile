@@ -1,7 +1,7 @@
 # Whisper 文字起こしシステム - Makefile
 # Windows では Git Bash または WSL で make を実行してください。
 
-.PHONY: install build start dev clean setup help
+.PHONY: install build start dev clean setup dist help
 
 # ルートと client の依存関係をインストール
 install:
@@ -21,12 +21,17 @@ start:
 dev:
 	npm run dev
 
+# リリース配布物を作成（dist/ に出力、Windows / macOS / Linux 対応）
+dist: build
+	node scripts/make-dist.mjs
+
 # node_modules とビルド成果物を削除
 clean:
 	rm -rf node_modules
 	rm -rf client/node_modules
 	rm -rf public/assets
 	rm -f public/index.html
+	rm -rf dist
 
 # 初回セットアップ: 依存関係インストール + クライアントビルド
 setup: install build
@@ -38,6 +43,7 @@ help:
 	@echo "  make build   - クライアントをビルド（public/ に出力）"
 	@echo "  make start   - 本番サーバー起動 (http://localhost:3000)"
 	@echo "  make dev     - 開発モード（サーバー + Vite、http://localhost:5173 で確認）"
+	@echo "  make dist    - リリース配布物を dist/ に作成（v1.0.0）"
 	@echo "  make clean   - node_modules とビルド成果物を削除"
 	@echo "  make setup   - install + build（初回セットアップ）"
 	@echo "  make help    - このヘルプを表示"
