@@ -1,6 +1,6 @@
 import { Copy, Check, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 
 export interface TranscriptionSegment {
   start: string
@@ -22,24 +22,78 @@ interface ResultsViewerProps {
 
 export function ResultsViewer({ segments, sessionId }: ResultsViewerProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
+  const [copyError, setCopyError] = useState<string | null>(null)
+  const [segmentError, setSegmentError] = useState<string | null>(null)
 
-  const copySegment = (text: string, index: number) => {
-    navigator.clipboard.writeText(text)
-    setCopiedIndex(index)
-    setTimeout(() => setCopiedIndex(null), 2000)
-  }
+  const copySegment = useCallback((text: string, index: number) => {
+    setCopyError(null)
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopiedIndex(index)
+        setTimeout(() => setCopiedIndex(null), 2000)
+      },
+      () => {
+        setCopyError("コピーに失敗しました。対策: ブラウザの権限（クリップボード）を許可するか、テキストを手動で選択してコピーしてください。")
+        setTimeout(() => setCopyError(null), 3000)
+      }
+    )
+  }, [])
 
-  const copyAll = () => {
+  const copyAll = useCallback(() => {
+    setCopyError(null)
     const fullText = segments
       .map((s) => `[${s.start} - ${s.end}] ${s.text}`)
       .join("\n")
-    navigator.clipboard.writeText(fullText)
-    setCopiedIndex(-1)
-    setTimeout(() => setCopiedIndex(null), 2000)
-  }
+    navigator.clipboard.writeText(fullText).then(
+      () => {
+        setCopiedIndex(-1)
+        setTimeout(() => setCopiedIndex(null), 2000)
+      },
+      () => {
+        setCopyError("コピーに失敗しました。対策: ブラウザの権限（クリップボード）を許可するか、テキストを手動で選択してコピーしてください。")
+        setTimeout(() => setCopyError(null), 3000)
+      }
+    )
+  }, [segments])
+
+  const downloadSegmentWav = useCallback(
+    async (index: number, downloadName: string) => {
+      if (sessionId == null) return
+      setSegmentError(null)
+      try {
+        const res = await fetch(`/segment/${sessionId}/${index}`)
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.message || `ダウンロードに失敗しました (${res.status})`)
+        }
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = downloadName
+        a.click()
+        URL.revokeObjectURL(url)
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "WAV のダウンロードに失敗しました。対策: もう一度お試しください。"
+        setSegmentError(msg.includes("対策:") ? msg : `${msg} 対策: もう一度お試しください。`)
+        setTimeout(() => setSegmentError(null), 4000)
+      }
+    },
+    [sessionId]
+  )
 
   return (
     <div className="rounded-xl border border-border bg-card">
+      {(copyError != null || segmentError != null) && (
+        <div className="flex flex-col gap-1.5 border-b border-border px-5 py-2.5">
+          {copyError != null && (
+            <p className="text-sm text-destructive" role="alert">{copyError}</p>
+          )}
+          {segmentError != null && (
+            <p className="text-sm text-destructive" role="alert">{segmentError}</p>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold text-foreground">
@@ -65,7 +119,7 @@ export function ResultsViewer({ segments, sessionId }: ResultsViewerProps) {
           全てコピー
         </Button>
       </div>
-      <div className="max-h-[420px] overflow-y-auto">
+      <div>
         {segments.map((segment, index) => (
           <div
             key={index}
@@ -84,22 +138,16 @@ export function ResultsViewer({ segments, sessionId }: ResultsViewerProps) {
                   size="icon"
                   className="h-7 w-7 hover:bg-muted/40 dark:hover:bg-accent dark:hover:text-accent-foreground"
                   title="WAV でダウンロード"
-                  asChild
+                  onClick={() => {
+                    const serif = sanitizeForFilename(segment.text)
+                    const name = serif
+                      ? `${String(index + 1).padStart(3, "0")}_${serif}.wav`
+                      : `${String(index + 1).padStart(3, "0")}.wav`
+                    downloadSegmentWav(index, name)
+                  }}
                 >
-                  <a
-                    href={`/segment/${sessionId}/${index}`}
-                    download={
-                      (() => {
-                        const serif = sanitizeForFilename(segment.text)
-                        return serif
-                          ? `${String(index + 1).padStart(3, "0")}_${serif}.wav`
-                          : `${String(index + 1).padStart(3, "0")}.wav`
-                      })()
-                    }
-                  >
-                    <Download className="h-3.5 w-3.5 text-muted-foreground dark:text-white" />
-                    <span className="sr-only">WAV ダウンロード</span>
-                  </a>
+                  <Download className="h-3.5 w-3.5 text-muted-foreground dark:text-white" />
+                  <span className="sr-only">WAV ダウンロード</span>
                 </Button>
               )}
               <Button

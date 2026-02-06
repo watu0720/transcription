@@ -16,6 +16,7 @@ export function DownloadButtons({
 }: DownloadButtonsProps) {
   const baseName = fileName.replace(/\.[^.]+$/, "")
   const [zipLoading, setZipLoading] = useState(false)
+  const [zipError, setZipError] = useState<string | null>(null)
 
   const downloadJSON = () => {
     const data = JSON.stringify(segments, null, 2)
@@ -43,10 +44,14 @@ export function DownloadButtons({
 
   const downloadZIP = async () => {
     if (sessionId == null) return
+    setZipError(null)
     setZipLoading(true)
     try {
       const res = await fetch(`/segment/${sessionId}/zip`)
-      if (!res.ok) throw new Error("ZIP の取得に失敗しました")
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.message || `ZIP の取得に失敗しました (${res.status})`)
+      }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -55,6 +60,8 @@ export function DownloadButtons({
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "ZIP の取得に失敗しました。"
+      setZipError(msg.includes("対策:") ? msg : `${msg} 対策: もう一度お試しください。`)
       console.error(e)
     } finally {
       setZipLoading(false)
@@ -62,7 +69,13 @@ export function DownloadButtons({
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-col gap-3">
+      {zipError != null && (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2.5 text-sm text-destructive" role="alert">
+          {zipError}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-3">
       <Button
         onClick={downloadJSON}
         variant="outlineCard"
@@ -93,6 +106,7 @@ export function DownloadButtons({
           <Download className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       )}
+      </div>
     </div>
   )
 }

@@ -62,15 +62,34 @@ app.use(express.static(path.join(__dirname, "public")));
 process.on("uncaughtException",(err)=>{console.error("[UncaughtException]",err)});
 process.on("unhandledRejection",(reason)=>{console.error("[UnhandledRejection]",reason)});
 
+/** クライアントに返す用にエラーメッセージをサニタイズ（パス・スタックを除き長さ制限） */
+function toClientMessage(err, fallback) {
+  const msg = err && typeof err.message === "string" ? err.message : fallback;
+  return String(msg).replace(/[\r\n]+/g, " ").replace(/\/[\w\\.-]+/g, "").slice(0, 300) || fallback;
+}
+
 /*--------------------------------------
   エンドポイント: /transcribe (POST)
   FormData で "media" フィールドに動画または音声ファイルを指定。
 --------------------------------------*/
-app.post("/transcribe", upload.single("media"), async (req, res) => {
+app.post("/transcribe", (req, res, next) => {
+  upload.single("media")(req, res, (err) => {
+    if (err) {
+      console.error(err);
+      const detail = toClientMessage(err, "ファイルのアップロードに失敗しました。");
+      return res.status(400).json({
+        message: `${detail} 対策: ファイルサイズ（25MB以下）と形式（wav / mp3 / ogg / flac）を確認し、再度お試しください。`
+      });
+    }
+    next();
+  });
+}, async (req, res) => {
   const startTime=Date.now();
   // 言語翻訳機能は削除し、日本語文字起こしのみに戻しました。
   if (!req.file) {
-    return res.status(400).json({ message: "ファイルが送信されていません。" });
+    return res.status(400).json({
+      message: "ファイルが送信されていません。対策: ファイルを選択してから「文字起こし開始」を押してください。"
+    });
   }
 
   const uploadedPath = req.file.path; // 例: uploads/uuid_originalname.mp4
@@ -88,12 +107,21 @@ app.post("/transcribe", upload.single("media"), async (req, res) => {
     cleanupSessions();
     const sessionId = uuidv4();
     const sessionWav = path.join(sessionsDir, `${sessionId}.wav`);
-    fs.renameSync(audioPath, sessionWav);
-    fs.writeFileSync(
-      path.join(sessionsDir, `${sessionId}.json`),
-      JSON.stringify(aggregated.segments),
-      "utf8"
-    );
+    try {
+      fs.renameSync(audioPath, sessionWav);
+      fs.writeFileSync(
+        path.join(sessionsDir, `${sessionId}.json`),
+        JSON.stringify(aggregated.segments),
+        "utf8"
+      );
+    } catch (fsErr) {
+      console.error(fsErr);
+      cleanupFiles([uploadedPath, audioPath]);
+      const detail = toClientMessage(fsErr, "セッションの保存に失敗しました。");
+      return res.status(500).json({
+        message: `${detail} 対策: ディスクの空き容量を確認し、再度お試しください。`
+      });
+    }
 
     // 後片付け（アップロード元と 9 分分割ファイルのみ。WAV はセッションに移動済み）
     cleanupFiles([uploadedPath, ...segmentPaths]);
@@ -106,7 +134,10 @@ app.post("/transcribe", upload.single("media"), async (req, res) => {
   } catch (err) {
     console.error(err);
     cleanupFiles([uploadedPath]);
-    return res.status(500).json({ message: "サーバー内部でエラーが発生しました。" });
+    const detail = toClientMessage(err, "サーバー内部でエラーが発生しました。");
+    return res.status(500).json({
+      message: `${detail} 対策: ファイル形式・サイズを確認するか、しばらくしてから再度お試しください。API の制限に達している場合は時間をおいてください。`
+    });
   }
 });
 
@@ -116,14 +147,31 @@ app.get("/segment/:sessionId/zip", (req, res) => {
   const sessionWav = path.join(sessionsDir, `${sessionId}.wav`);
   const sessionJson = path.join(sessionsDir, `${sessionId}.json`);
   if (!fs.existsSync(sessionWav) || !fs.existsSync(sessionJson)) {
-    return res.status(404).json({ message: "セッションが見つかりません。" });
+    return res.status(404).json({
+      message: "セッションが見つかりません。対策: もう一度文字起こしを実行してから、ZIP ダウンロードをお試しください。"
+    });
   }
-  const segments = JSON.parse(fs.readFileSync(sessionJson, "utf8"));
+  let segments;
+  try {
+    segments = JSON.parse(fs.readFileSync(sessionJson, "utf8"));
+  } catch (parseErr) {
+    console.error(parseErr);
+    return res.status(500).json({
+      message: "セッション情報の読み込みに失敗しました。対策: もう一度文字起こしを実行してください。"
+    });
+  }
   const archive = archiver("zip", { zlib: { level: 6 } });
   archive.on("error", (err) => {
     console.error(err);
     tempPaths.forEach((p) => { try { fs.unlinkSync(p); } catch (_) {} });
-    if (!res.headersSent) res.status(500).json({ message: "ZIP の作成に失敗しました。" });
+    if (!res.headersSent) {
+      const detail = toClientMessage(err, "");
+      res.status(500).json({
+        message: detail
+          ? `ZIP の作成に失敗しました。対策: しばらくしてから再度お試しください。（${detail}）`
+          : "ZIP の作成に失敗しました。対策: しばらくしてから再度お試しください。"
+      });
+    }
   });
   res.attachment("segments.zip");
   archive.pipe(res);
@@ -160,11 +208,23 @@ app.get("/segment/:sessionId/:index", (req, res) => {
   const sessionJson = path.join(sessionsDir, `${sessionId}.json`);
   const idx = parseInt(indexStr, 10);
   if (!fs.existsSync(sessionWav) || !fs.existsSync(sessionJson)) {
-    return res.status(404).json({ message: "セッションが見つかりません。" });
+    return res.status(404).json({
+      message: "セッションが見つかりません。対策: もう一度文字起こしを実行してから、WAV ダウンロードをお試しください。"
+    });
   }
-  const segments = JSON.parse(fs.readFileSync(sessionJson, "utf8"));
+  let segments;
+  try {
+    segments = JSON.parse(fs.readFileSync(sessionJson, "utf8"));
+  } catch (parseErr) {
+    console.error(parseErr);
+    return res.status(500).json({
+      message: "セッション情報の読み込みに失敗しました。対策: もう一度文字起こしを実行してください。"
+    });
+  }
   if (!Number.isFinite(idx) || idx < 0 || idx >= segments.length) {
-    return res.status(400).json({ message: "無効なセグメント番号です。" });
+    return res.status(400).json({
+      message: "無効なセグメント番号です。対策: 画面を更新してから再度お試しください。"
+    });
   }
   const seg = segments[idx];
   const outPath = path.join(sessionsDir, `_seg_${sessionId}_${idx}.wav`);
@@ -176,13 +236,18 @@ app.get("/segment/:sessionId/:index", (req, res) => {
     .then(() => {
       res.download(outPath, downloadName, (err) => {
         fs.unlink(outPath, () => {});
-        if (err && !res.headersSent) res.status(500).end();
+        if (err && !res.headersSent) res.status(500).json({
+          message: "ダウンロードの送信に失敗しました。対策: 再度お試しください。"
+        });
       });
     })
     .catch((err) => {
       console.error(err);
       if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
-      res.status(500).json({ message: "セグメントの抽出に失敗しました。" });
+      const detail = toClientMessage(err, "セグメントの抽出に失敗しました。");
+      res.status(500).json({
+        message: `${detail} 対策: もう一度お試しください。`
+      });
     });
 });
 
@@ -191,6 +256,16 @@ app.get("/shutdown", (req,res)=>{
   res.send("shutting down");
   console.log("Shutdown requested by client.");
   setTimeout(()=>process.exit(0),100);
+});
+
+// ルート未定義・その他エラーを JSON で返す
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) return next(err);
+  const detail = toClientMessage(err, "エラーが発生しました。");
+  res.status(500).json({
+    message: `${detail} 対策: 画面を更新するか、しばらくしてから再度お試しください。`
+  });
 });
 
 app.listen(PORT, () => {
