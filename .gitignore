@@ -1,0 +1,17 @@
+# Environment (API keys - never commit)
+.env
+
+# Dependencies
+node_modules/
+
+# Uploaded files
+/uploads/
+
+# Logs
+launch_log.txt
+debug_log.txt
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

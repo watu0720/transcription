@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whisper 文字起こしツール</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>Whisper 文字起こしツール</h1>
+
+    <section id="specs" class="specs">
+      <h2>システム仕様</h2>
+      <ul>
+        <li>対応ファイル: wav / mp3 / ogg / flac / mp4 / avi (最大サイズは OpenAI API の制限に依存)</li>
+        <li>音声は最長 9 分ごとに自動分割し Whisper (OpenAI) へ送信</li>
+        <li>出力形式: タイムスタンプ付きテキスト + JSON</li>
+        <li>文字起こし完了時に処理時間を表示</li>
+        <li>「閉じる」ボタンでサーバーを停止 &amp; タブを閉じる</li>
+      </ul>
+    </section>
+
+    <section id="uploader">
+      <input type="file" id="file_input" accept=".wav,.mp3,.ogg,.flac,.mp4,.avi" />
+      <button id="transcribe_btn" class="btn" disabled>文字起こし開始</button>
+      <button id="close_btn" class="btn secondary">閉じる (アプリ終了)</button>
+    </section>
+
+    <section id="progress" class="hidden">
+      <div id="spinner" class="spinner hidden"></div>
+      <p id="status_msg">アップロード中...</p>
+    </section>
+
+    <section id="result" class="hidden">
+      <h2>結果</h2>
+      <textarea id="result_text" readonly></textarea>
+      <div class="actions">
+        <button id="download_json" class="btn">JSON ダウンロード</button>
+        <button id="download_txt" class="btn">TXT ダウンロード</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html> 

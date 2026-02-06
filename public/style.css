@@ -1,0 +1,178 @@
+/* style.css - 基本的なスタイル設定 */
+
+:root {
+  --primary: #1976d2;
+  --primary-dark: #135ba1;
+  --bg: #f5f7fa;
+  --panel-bg: #ffffff;
+  --border: #e0e0e0;
+  --text: #333;
+}
+
+body {
+  font-family: "Noto Sans JP", sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  color: var(--primary);
+}
+
+section {
+  margin-bottom: 2rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#uploader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+input[type="file"] {
+  flex: 1;
+}
+
+.btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  transition: background 0.2s ease;
+}
+
+.btn:hover {
+  background: var(--primary-dark);
+}
+
+.btn:disabled {
+  background: var(--border);
+  cursor: not-allowed;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.actions .btn {
+  flex: 1 1 180px;
+}
+
+#result_text {
+  width: 100%;
+  box-sizing: border-box;
+  height: 40vh;
+  min-height: 300px;
+  max-height: 60vh;
+  resize: vertical;
+  padding: 1rem;
+  font-family: "Courier New", monospace;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+/* スピナー */
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid #ccc;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  margin-right: 10px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.btn.secondary {
+  background: #9e9e9e;
+}
+.btn.secondary:hover {
+  background: #7b7b7b;
+}
+
+.error{color:red;}
+
+.specs{
+  margin-bottom:2rem;
+  background:var(--panel-bg);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:1.5rem;
+  box-shadow:0 2px 4px rgba(0,0,0,0.05);
+}
+.specs ul{padding-left:1.2rem;margin:0;}
+.specs li{margin-bottom:.4rem;}
+
+/* End of style.css */
+
+/* ------------------------------
+   レスポンシブ (<=768px)
+------------------------------ */
+@media (max-width: 768px) {
+  .container {
+    padding: 24px 16px;
+  }
+
+  section {
+    padding: 1rem;
+  }
+
+  #uploader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  input[type="file"] {
+    width: 100%;
+  }
+
+  .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions .btn {
+    width: 100%;
+    flex: none;
+  }
+
+  #result_text {
+    height: 50vh;
+    min-height: 200px;
+  }
+} 
