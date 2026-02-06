@@ -48,7 +48,7 @@ export function StatusBar({
       )}
       {status === "error" && (
         <>
-          <AlertCircle className="h-4.5 w-4.5 text-destructive" />
+          <AlertCircle className="h-6 w-6 shrink-0 text-destructive" />
           <p className="text-sm font-medium text-destructive">
             {error || "エラーが発生しました"}
           </p>
