@@ -9,7 +9,10 @@ node_modules/
 
 # Session WAV/JSON for segment download
 /sessions/
+
+# Vite ビルド成果物（client/ から public/ へ出力）
 /public/assets/
+/public/index.html
 
 # Logs
 launch_log.txt
