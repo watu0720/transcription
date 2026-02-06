@@ -9,6 +9,7 @@ node_modules/
 
 # Session WAV/JSON for segment download
 /sessions/
+/public/assets/
 
 # Logs
 launch_log.txt
