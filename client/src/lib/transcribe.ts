@@ -22,6 +22,7 @@ export interface TranscribeResponse {
   segments: ApiSegment[]
   text: string
   durationMs: number
+  sessionId: string
 }
 
 export async function transcribe(file: File): Promise<TranscribeResponse> {

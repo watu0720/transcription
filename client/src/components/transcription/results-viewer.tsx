@@ -1,4 +1,4 @@
-import { Copy, Check } from "lucide-react"
+import { Copy, Check, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 
@@ -8,11 +8,19 @@ export interface TranscriptionSegment {
   text: string
 }
 
-interface ResultsViewerProps {
-  segments: TranscriptionSegment[]
+/** ファイル名用にサニタイズ（禁則文字・長さ制限） */
+function sanitizeForFilename(text: string, maxLen = 30): string {
+  if (!text.trim()) return ""
+  const replaced = text.replace(/[\\/:*?"<>|\n\r\t]+/g, " ").trim()
+  return replaced.length <= maxLen ? replaced : replaced.slice(0, maxLen)
 }
 
-export function ResultsViewer({ segments }: ResultsViewerProps) {
+interface ResultsViewerProps {
+  segments: TranscriptionSegment[]
+  sessionId: string | null
+}
+
+export function ResultsViewer({ segments, sessionId }: ResultsViewerProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
 
   const copySegment = (text: string, index: number) => {
@@ -69,21 +77,47 @@ export function ResultsViewer({ segments }: ResultsViewerProps) {
             <p className="flex-1 text-sm leading-snug text-foreground">
               {segment.text}
             </p>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`h-7 w-7 shrink-0 hover:bg-muted/40 dark:hover:bg-accent dark:hover:text-accent-foreground ${
-                copiedIndex === index ? "!bg-accent !text-white" : ""
-              }`}
-              onClick={() => copySegment(segment.text, index)}
-            >
-              {copiedIndex === index ? (
-                <Check className="h-3.5 w-3.5 text-white" />
-              ) : (
-                <Copy className="h-3.5 w-3.5 text-muted-foreground dark:text-white" />
+            <div className="flex shrink-0 items-center gap-0.5">
+              {sessionId != null && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 hover:bg-muted/40 dark:hover:bg-accent dark:hover:text-accent-foreground"
+                  title="WAV でダウンロード"
+                  asChild
+                >
+                  <a
+                    href={`/segment/${sessionId}/${index}`}
+                    download={
+                      (() => {
+                        const serif = sanitizeForFilename(segment.text)
+                        return serif
+                          ? `${String(index + 1).padStart(3, "0")}_${serif}.wav`
+                          : `${String(index + 1).padStart(3, "0")}.wav`
+                      })()
+                    }
+                  >
+                    <Download className="h-3.5 w-3.5 text-muted-foreground dark:text-white" />
+                    <span className="sr-only">WAV ダウンロード</span>
+                  </a>
+                </Button>
               )}
-              <span className="sr-only">コピー</span>
-            </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-7 w-7 hover:bg-muted/40 dark:hover:bg-accent dark:hover:text-accent-foreground ${
+                  copiedIndex === index ? "!bg-accent !text-white" : ""
+                }`}
+                onClick={() => copySegment(segment.text, index)}
+              >
+                {copiedIndex === index ? (
+                  <Check className="h-3.5 w-3.5 text-white" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground dark:text-white" />
+                )}
+                <span className="sr-only">コピー</span>
+              </Button>
+            </div>
           </div>
         ))}
       </div>

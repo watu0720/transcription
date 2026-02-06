@@ -52,3 +52,12 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* テーマ切替時のみ：色をゆっくり変化させる（目に優しい） */
+html.theme-transition,
+html.theme-transition * {
+  transition:
+    background-color 0.55s ease-in-out,
+    color 0.55s ease-in-out,
+    border-color 0.55s ease-in-out;
+}
