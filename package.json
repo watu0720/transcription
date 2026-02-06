@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "npm run build --prefix client",
+    "dist": "npm run build && node scripts/make-dist.mjs",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "cross-env SKIP_OPEN_BROWSER=1 node server.js",
     "dev:client": "npm run dev --prefix client"

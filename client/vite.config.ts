@@ -16,6 +16,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      "/api": "http://127.0.0.1:3000",
       "/transcribe": "http://127.0.0.1:3000",
       "/segment": "http://127.0.0.1:3000",
       "/shutdown": "http://127.0.0.1:3000",

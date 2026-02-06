@@ -14,6 +14,9 @@ node_modules/
 /public/assets/
 /public/index.html
 
+# 配布物（make dist の出力）
+/dist/
+
 # Logs
 launch_log.txt
 debug_log.txt
